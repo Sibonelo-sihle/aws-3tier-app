@@ -1,0 +1,6 @@
+aws_region       = "us-east-1"
+project_name     = "aws-3tier-app"
+instance_type    = "t2.micro"
+key_pair_name    = "aws-3tier-key"
+ssh_allowed_cidr = "102.212.63.248/32"
+db_password      = "MyStrongPass2024!"

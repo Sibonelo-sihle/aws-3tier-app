@@ -1,15 +1,21 @@
 terraform {
   required_version = ">= 1.5.0"
   required_providers {
-    aws = { source = "hashicorp/aws", version = "~> 5.0" }
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
   }
 }
 
-provider "aws" { region = var.aws_region }
+provider "aws" {
+  region = var.aws_region
+}
 
-data "aws_availability_zones" "available" { state = "available" }
+data "aws_availability_zones" "available" {
+  state = "available"
+}
 
-# VPC
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
@@ -17,7 +23,6 @@ resource "aws_vpc" "main" {
   tags = { Name = "${var.project_name}-vpc" }
 }
 
-# Subnets
 resource "aws_subnet" "public" {
   count                   = 2
   vpc_id                  = aws_vpc.main.id
@@ -35,14 +40,14 @@ resource "aws_subnet" "private" {
   tags = { Name = "${var.project_name}-private-${count.index + 1}" }
 }
 
-# Internet Gateway
 resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
   tags   = { Name = "${var.project_name}-igw" }
 }
 
-# NAT Gateway
-resource "aws_eip" "nat" { domain = "vpc" }
+resource "aws_eip" "nat" {
+  domain = "vpc"
+}
 
 resource "aws_nat_gateway" "main" {
   allocation_id = aws_eip.nat.id
@@ -51,10 +56,12 @@ resource "aws_nat_gateway" "main" {
   tags          = { Name = "${var.project_name}-nat" }
 }
 
-# Route Tables
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
-  route { cidr_block = "0.0.0.0/0"; gateway_id = aws_internet_gateway.main.id }
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
+  }
   tags = { Name = "${var.project_name}-public-rt" }
 }
 
@@ -66,7 +73,10 @@ resource "aws_route_table_association" "public" {
 
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
-  route { cidr_block = "0.0.0.0/0"; nat_gateway_id = aws_nat_gateway.main.id }
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.main.id
+  }
   tags = { Name = "${var.project_name}-private-rt" }
 }
 
@@ -76,33 +86,66 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private.id
 }
 
-# Security Groups
 resource "aws_security_group" "alb" {
   name   = "${var.project_name}-alb-sg"
   vpc_id = aws_vpc.main.id
-  ingress { from_port = 80;  to_port = 80;  protocol = "tcp"; cidr_blocks = ["0.0.0.0/0"] }
-  ingress { from_port = 443; to_port = 443; protocol = "tcp"; cidr_blocks = ["0.0.0.0/0"] }
-  egress  { from_port = 0;   to_port = 0;   protocol = "-1";  cidr_blocks = ["0.0.0.0/0"] }
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
   tags = { Name = "${var.project_name}-alb-sg" }
 }
 
 resource "aws_security_group" "ec2" {
   name   = "${var.project_name}-ec2-sg"
   vpc_id = aws_vpc.main.id
-  ingress { from_port = 5000; to_port = 5000; protocol = "tcp"; security_groups = [aws_security_group.alb.id] }
-  ingress { from_port = 22;   to_port = 22;   protocol = "tcp"; cidr_blocks = [var.ssh_allowed_cidr] }
-  egress  { from_port = 0;    to_port = 0;    protocol = "-1";  cidr_blocks = ["0.0.0.0/0"] }
+  ingress {
+    from_port       = 5000
+    to_port         = 5000
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]
+  }
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [var.ssh_allowed_cidr]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
   tags = { Name = "${var.project_name}-ec2-sg" }
 }
 
 resource "aws_security_group" "rds" {
   name   = "${var.project_name}-rds-sg"
   vpc_id = aws_vpc.main.id
-  ingress { from_port = 5432; to_port = 5432; protocol = "tcp"; security_groups = [aws_security_group.ec2.id] }
+  ingress {
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.ec2.id]
+  }
   tags = { Name = "${var.project_name}-rds-sg" }
 }
 
-# RDS
 resource "aws_db_subnet_group" "main" {
   name       = "${var.project_name}-db-subnet"
   subnet_ids = aws_subnet.private[*].id
@@ -124,12 +167,15 @@ resource "aws_db_instance" "postgres" {
   tags = { Name = "${var.project_name}-rds" }
 }
 
-# IAM Role for EC2
 resource "aws_iam_role" "ec2" {
   name = "${var.project_name}-ec2-role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{ Action = "sts:AssumeRole"; Effect = "Allow"; Principal = { Service = "ec2.amazonaws.com" } }]
+    Statement = [{
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
+      Principal = { Service = "ec2.amazonaws.com" }
+    }]
   })
 }
 
@@ -148,11 +194,13 @@ resource "aws_iam_instance_profile" "ec2" {
   role = aws_iam_role.ec2.name
 }
 
-# Launch Template
 data "aws_ami" "amazon_linux" {
   most_recent = true
   owners      = ["amazon"]
-  filter { name = "name"; values = ["amzn2-ami-hvm-*-x86_64-gp2"] }
+  filter {
+    name   = "name"
+    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+  }
 }
 
 resource "aws_launch_template" "app" {
@@ -161,7 +209,10 @@ resource "aws_launch_template" "app" {
   instance_type = var.instance_type
   key_name      = var.key_pair_name
 
-  iam_instance_profile { name = aws_iam_instance_profile.ec2.name }
+  iam_instance_profile {
+    name = aws_iam_instance_profile.ec2.name
+  }
+
   network_interfaces {
     associate_public_ip_address = false
     security_groups             = [aws_security_group.ec2.id]
@@ -173,14 +224,12 @@ resource "aws_launch_template" "app" {
     amazon-linux-extras install docker -y
     systemctl start docker
     systemctl enable docker
-
-    DB_PASS=$(aws ssm get-parameter --name "/${var.project_name}/db_password" --with-decryption --query "Parameter.Value" --output text --region ${var.aws_region})
-
+    DB_PASS=$(aws ssm get-parameter --name "/aws-3tier-app/db_password" --with-decryption --query "Parameter.Value" --output text --region us-east-1)
     docker pull sibonelo190/aws-3tier-app:latest
     docker run -d --name app --restart always -p 5000:5000 \
       -e DB_HOST="${aws_db_instance.postgres.address}" \
-      -e DB_NAME="${var.db_name}" \
-      -e DB_USER="${var.db_username}" \
+      -e DB_NAME="appdb" \
+      -e DB_USER="postgres" \
       -e DB_PASSWORD="$DB_PASS" \
       sibonelo190/aws-3tier-app:latest
   EOF
@@ -192,7 +241,6 @@ resource "aws_launch_template" "app" {
   }
 }
 
-# ALB
 resource "aws_lb" "main" {
   name               = "${var.project_name}-alb"
   internal           = false
@@ -219,10 +267,12 @@ resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.main.arn
   port              = 80
   protocol          = "HTTP"
-  default_action { type = "forward"; target_group_arn = aws_lb_target_group.app.arn }
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.app.arn
+  }
 }
 
-# Auto Scaling Group
 resource "aws_autoscaling_group" "app" {
   name                = "${var.project_name}-asg"
   desired_capacity    = 2
@@ -232,11 +282,18 @@ resource "aws_autoscaling_group" "app" {
   target_group_arns   = [aws_lb_target_group.app.arn]
   health_check_type   = "ELB"
 
-  launch_template { id = aws_launch_template.app.id; version = "$Latest" }
-  tag { key = "Name"; value = "${var.project_name}-instance"; propagate_at_launch = true }
+  launch_template {
+    id      = aws_launch_template.app.id
+    version = "$Latest"
+  }
+
+  tag {
+    key                 = "Name"
+    value               = "${var.project_name}-instance"
+    propagate_at_launch = true
+  }
 }
 
-# Scaling Policies
 resource "aws_autoscaling_policy" "scale_up" {
   name                   = "${var.project_name}-scale-up"
   scaling_adjustment     = 1
@@ -253,7 +310,6 @@ resource "aws_autoscaling_policy" "scale_down" {
   autoscaling_group_name = aws_autoscaling_group.app.name
 }
 
-# CloudWatch Alarms
 resource "aws_cloudwatch_metric_alarm" "cpu_high" {
   alarm_name          = "${var.project_name}-cpu-high"
   comparison_operator = "GreaterThanOrEqualToThreshold"
@@ -264,7 +320,9 @@ resource "aws_cloudwatch_metric_alarm" "cpu_high" {
   statistic           = "Average"
   threshold           = 70
   alarm_actions       = [aws_autoscaling_policy.scale_up.arn]
-  dimensions          = { AutoScalingGroupName = aws_autoscaling_group.app.name }
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.app.name
+  }
 }
 
 resource "aws_cloudwatch_metric_alarm" "cpu_low" {
@@ -277,12 +335,13 @@ resource "aws_cloudwatch_metric_alarm" "cpu_low" {
   statistic           = "Average"
   threshold           = 30
   alarm_actions       = [aws_autoscaling_policy.scale_down.arn]
-  dimensions          = { AutoScalingGroupName = aws_autoscaling_group.app.name }
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.app.name
+  }
 }
 
-# SSM Parameter Store for DB password
 resource "aws_ssm_parameter" "db_password" {
-  name  = "/${var.project_name}/db_password"
+  name  = "/aws-3tier-app/db_password"
   type  = "SecureString"
   value = var.db_password
 }
