@@ -1,0 +1,22 @@
+# Navigate to your project root
+cd "C:\Users\giles\OneDrive - Cape IT Initiative\Documents\aws3tierapp\aws-3tier-app"
+
+# Create .gitignore file
+@"
+# Terraform - NEVER commit these!
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+crash.log
+*.tfvars
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+
+# IDE
+.vscode/
+.idea/
+"@ | Out-File -FilePath .gitignore -Encoding UTF8 -Force
