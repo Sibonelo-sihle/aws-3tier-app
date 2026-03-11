@@ -20,7 +20,7 @@ resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
   enable_dns_support   = true
-  tags = { Name = "${var.project_name}-vpc" }
+  tags                 = { Name = "${var.project_name}-vpc" }
 }
 
 resource "aws_subnet" "public" {
@@ -29,7 +29,7 @@ resource "aws_subnet" "public" {
   cidr_block              = var.public_subnet_cidrs[count.index]
   availability_zone       = data.aws_availability_zones.available.names[count.index]
   map_public_ip_on_launch = true
-  tags = { Name = "${var.project_name}-public-${count.index + 1}" }
+  tags                    = { Name = "${var.project_name}-public-${count.index + 1}" }
 }
 
 resource "aws_subnet" "private" {
@@ -37,7 +37,7 @@ resource "aws_subnet" "private" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = var.private_subnet_cidrs[count.index]
   availability_zone = data.aws_availability_zones.available.names[count.index]
-  tags = { Name = "${var.project_name}-private-${count.index + 1}" }
+  tags              = { Name = "${var.project_name}-private-${count.index + 1}" }
 }
 
 resource "aws_internet_gateway" "main" {
@@ -154,7 +154,7 @@ resource "aws_db_subnet_group" "main" {
 resource "aws_db_instance" "postgres" {
   identifier             = "${var.project_name}-db"
   engine                 = "postgres"
-  engine_version         = "15.4"
+  engine_version         = "15.14"  # Changed from 15.4 to match existing
   instance_class         = "db.t3.micro"
   allocated_storage      = 20
   storage_encrypted      = true
@@ -166,6 +166,7 @@ resource "aws_db_instance" "postgres" {
   skip_final_snapshot    = true
   tags = { Name = "${var.project_name}-rds" }
 }
+
 
 resource "aws_iam_role" "ec2" {
   name = "${var.project_name}-ec2-role"
@@ -224,12 +225,18 @@ resource "aws_launch_template" "app" {
     amazon-linux-extras install docker -y
     systemctl start docker
     systemctl enable docker
-    DB_PASS=$(aws ssm get-parameter --name "/aws-3tier-app/db_password" --with-decryption --query "Parameter.Value" --output text --region us-east-1)
+    
+    # Install AWS CLI if not present (for SSM parameter retrieval)
+    yum install -y aws-cli
+    
+    # Get password from SSM Parameter Store
+    DB_PASS=$(aws ssm get-parameter --name "/${var.project_name}/db_password" --with-decryption --query "Parameter.Value" --output text --region ${var.aws_region})
+    
     docker pull sibonelo190/aws-3tier-app:latest
     docker run -d --name app --restart always -p 5000:5000 \
       -e DB_HOST="${aws_db_instance.postgres.address}" \
-      -e DB_NAME="appdb" \
-      -e DB_USER="postgres" \
+      -e DB_NAME="${var.db_name}" \
+      -e DB_USER="${var.db_username}" \
       -e DB_PASSWORD="$DB_PASS" \
       sibonelo190/aws-3tier-app:latest
   EOF
@@ -237,7 +244,7 @@ resource "aws_launch_template" "app" {
 
   tag_specifications {
     resource_type = "instance"
-    tags = { Name = "${var.project_name}-ec2" }
+    tags          = { Name = "${var.project_name}-ec2" }
   }
 }
 
@@ -247,7 +254,7 @@ resource "aws_lb" "main" {
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
   subnets            = aws_subnet.public[*].id
-  tags = { Name = "${var.project_name}-alb" }
+  tags               = { Name = "${var.project_name}-alb" }
 }
 
 resource "aws_lb_target_group" "app" {
@@ -340,8 +347,13 @@ resource "aws_cloudwatch_metric_alarm" "cpu_low" {
   }
 }
 
+# Store the password in SSM Parameter Store with a valid path
 resource "aws_ssm_parameter" "db_password" {
-  name  = "/aws-3tier-app/db_password"
+  name  = "/app/aws-3tier-app/db_password"  # Using /app/ prefix instead of /aws-
   type  = "SecureString"
   value = var.db_password
 }
+
+
+# REMOVED DUPLICATE OUTPUTS FROM HERE
+# They should be in outputs.tf instead
