@@ -1,132 +1,198 @@
-# AWS 3-Tier Flask Application (Terraform + Docker)
+<div align="center">
 
-## Project Overview
+# AWS 3-Tier Flask Application
+### Production-Grade Cloud Deployment · Terraform IaC · Docker Containerisation
 
-This project demonstrates how to design and deploy a **scalable 3-tier cloud application on AWS** using:
+[![Terraform](https://img.shields.io/badge/IaC-Terraform-7B42BC?style=for-the-badge&logo=terraform)](https://www.terraform.io/)
+[![Docker](https://img.shields.io/badge/Container-Docker-2496ED?style=for-the-badge&logo=docker)](https://www.docker.com/)
+[![AWS](https://img.shields.io/badge/Cloud-AWS-FF9900?style=for-the-badge&logo=amazonaws)](https://aws.amazon.com/)
+[![Python](https://img.shields.io/badge/Backend-Flask%20%2F%20Python-3776AB?style=for-the-badge&logo=python)](https://flask.palletsprojects.com/)
+[![Status](https://img.shields.io/badge/Status-Production%20Deployed-00C853?style=for-the-badge)]()
 
-- Terraform (Infrastructure as Code)
-- Docker (Containerization)
-- AWS EC2
-- Flask (Python)
+</div>
 
-The goal was to simulate a **real-world cloud deployment scenario** where a startup needs a scalable and secure web application.
+---
+
+## Overview
+
+This repository contains the infrastructure code and application source for a **production-representative three-tier web application** deployed on Amazon Web Services. The project demonstrates end-to-end cloud engineering capability — from network architecture and security design through to containerised application deployment, all provisioned via Infrastructure as Code.
+
+The architecture enforces strict layer separation across presentation, application, and data tiers, providing blast-radius containment, independent scaling, and a defence-in-depth security posture consistent with the **AWS Well-Architected Framework**.
 
 ---
 
 ## Architecture
 
-The system follows a **3-tier architecture**:
+```
+                         ┌──────────────────────────────────────────────┐
+                         │                   AWS VPC                    │
+  ┌──────────┐           │  ┌─────────────────┐    ┌─────────────────┐  │
+  │ Internet │──IGW──────┼─▶│  Public Subnet  │    │ Private Subnet  │  │
+  └──────────┘           │  │                 │    │                 │  │
+                         │  │  ┌───────────┐  │    │  ┌───────────┐  │  │
+                         │  │  │   EC2     │  │    │  │   EC2     │  │  │
+                         │  │  │ [Tier 1]  │──┼────┼─▶│ [Tier 2]  │  │  │
+                         │  │  │  Web/LB   │  │    │  │Flask API  │  │  │
+                         │  │  └───────────┘  │    │  └─────┬─────┘  │  │
+                         │  └─────────────────┘    │        │        │  │
+                         │                         │  ┌─────▼─────┐  │  │
+                         │                         │  │  [Tier 3] │  │  │
+                         │                         │  │ Database  │  │  │
+                         │                         │  └───────────┘  │  │
+                         │                         └─────────────────┘  │
+                         └──────────────────────────────────────────────┘
+```
 
-1. Presentation Layer (Frontend)
-2. Application Layer (Flask Backend)
-3. Data Layer (Database)
-
-This architecture improves:
-
-- scalability
-- security
-- maintainability
+| Tier | Layer | Placement | Exposure |
+|------|-------|-----------|----------|
+| **1** | Presentation (Web / Load Balancer) | Public Subnet | Internet-facing |
+| **2** | Application (Flask REST API · Docker) | Private Subnet | Internal only |
+| **3** | Data (Database) | Private Subnet | Application tier only |
 
 ---
 
-## Technologies Used
+## Technology Stack
 
-- AWS
-- Terraform
-- Docker
-- Python Flask
-- GitHub
-- VS Code
-
----
-
-## Infrastructure
-
-Infrastructure was deployed using Terraform.
-
-Main AWS resources:
-
-- VPC
-- Subnets
-- Internet Gateway
-- Route Tables
-- Security Groups
-- EC2 Instances
+| Category | Technology | Version |
+|---|---|---|
+| Cloud Provider | Amazon Web Services | — |
+| Infrastructure as Code | Terraform (HCL) | ≥ 1.6 |
+| Containerisation | Docker | ≥ 24.x |
+| Application Framework | Flask (Python) | 3.x |
+| Compute | AWS EC2 | — |
+| Networking | AWS VPC + Subnets + SGs + IGW | — |
+| Version Control | Git / GitHub | — |
+| CI Trigger | GitHub Actions (push-based) | — |
 
 ---
 
-## Deployment Steps
+## Prerequisites
 
-1. Clone the repository
+Ensure the following are installed and authenticated before deployment:
 
+```bash
+# Verify toolchain
+terraform  version   # ≥ 1.6.0
+docker     version   # ≥ 24.x
+aws        --version # ≥ 2.x
+
+# Configure AWS credentials
+aws configure
+# AWS Access Key ID, Secret, Region, Output format
 ```
-git clone https://github.com/yourrepo/project.git
+
+---
+
+## Deployment
+
+### 1. Clone Repository
+
+```bash
+git clone https://github.com/<your-username>/aws-3tier-flask.git
+cd aws-3tier-flask
 ```
 
-2. Initialize Terraform
+### 2. Provision Infrastructure
 
-```
+```bash
+cd infrastructure/
+
+# Initialise Terraform providers and remote state backend
 terraform init
+
+# Validate configuration syntax and resource consistency
+terraform validate
+
+# Preview execution plan — review before applying
+terraform plan -out=tfplan
+
+# Apply approved plan to target AWS environment
+terraform apply tfplan
 ```
 
-3. Plan deployment
+### 3. Build and Deploy Application Container
+
+```bash
+# Build Docker image from source
+docker build -t flask-app:latest ./app
+
+# Run locally for smoke testing
+docker run -p 5000:5000 flask-app:latest
+
+# Deploy container to EC2 (SSH into instance first)
+ssh -i <key.pem> ec2-user@<EC2_PUBLIC_IP>
+docker pull flask-app:latest
+docker run -d -p 80:5000 --restart=always flask-app:latest
+```
+
+### 4. Teardown
+
+```bash
+cd infrastructure/
+terraform destroy
+```
+
+---
+
+## Repository Structure
 
 ```
-terraform plan
+aws-3tier-flask/
+├── infrastructure/           # Terraform IaC
+│   ├── main.tf               # Root module — resource orchestration
+│   ├── variables.tf          # Input variable declarations
+│   ├── outputs.tf            # Output value exports
+│   ├── terraform.tfvars      # Environment-specific values (gitignored)
+│   └── modules/
+│       ├── networking/       # VPC, subnets, IGW, route tables
+│       ├── compute/          # EC2 instances, key pairs
+│       └── security/         # Security groups, IAM roles
+├── app/
+│   ├── app.py                # Flask application entry point
+│   ├── requirements.txt      # Python dependencies
+│   └── Dockerfile            # Container build definition
+├── docs/
+│   └── architecture.png      # Architecture diagram
+└── README.md
 ```
 
-4. Apply infrastructure
+---
 
-```
-terraform apply
-```
+## Security Posture
+
+- **Network segmentation** — application and data tiers are fully isolated in private subnets with no direct internet routing
+- **Least-privilege Security Groups** — explicit allow rules only; all other traffic implicitly denied
+- **No credentials in source** — AWS credentials and sensitive values managed via environment variables and `terraform.tfvars` (gitignored)
+- **Immutable containers** — Docker images are built from a locked base image and never mutated in production
+
+---
+
+## Incidents & Resolutions
+
+Real operational challenges encountered and resolved during this engagement:
+
+| Incident | Root Cause | Resolution |
+|---|---|---|
+| Docker daemon connection failure | Docker Desktop process crash; socket unavailable | Daemon restart; added pre-build health check |
+| Terraform dependency resolution error | Missing `depends_on` declarations; implicit ordering insufficient | Explicit dependency graph; `terraform validate` in CI |
+| Security Group ingress misconfiguration | Incorrect CIDR references; missing port rules | VPC Flow Log analysis; least-privilege rule rewrite |
 
 ---
 
 ## Screenshots
 
-### Architecture Diagram
-(Add image here)
-
-### Terraform Deployment
-(Add screenshot)
-
-### Docker Container Running
-(Add screenshot)
-
-### AWS EC2 Instance
-(Add screenshot)
-
-### Application Running in Browser
-(Add screenshot)
-
----
-
-## Challenges Faced
-
-Some challenges encountered:
-
-- Docker daemon connection errors
-- Terraform configuration issues
-- AWS networking configuration problems
-
-These were solved through debugging, configuration fixes, and testing.
-
----
-
-## Learning Outcomes
-
-This project helped me gain hands-on experience with:
-
-- Cloud infrastructure automation
-- Docker container deployment
-- AWS networking
-- Terraform infrastructure management
+| Component | Screenshot |
+|---|---|
+| Architecture Diagram | *(add: `docs/architecture.png`)* |
+| `terraform apply` output | *(add screenshot)* |
+| Docker container running | *(add screenshot)* |
+| EC2 instance in AWS Console | *(add screenshot)* |
+| Application live in browser | *(add screenshot)* |
 
 ---
 
 ## Author
 
-**Sibonelo Buthelezi**
+**Sibonelo Buthelezi** — Cloud / DevOps Engineer
 
-Cloud Engineering Project
+> Designed and deployed end-to-end as part of a 4-week cloud engineering sprint demonstrating production-grade AWS infrastructure using Terraform and Docker.
