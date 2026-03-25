@@ -23,25 +23,7 @@ The architecture enforces strict layer separation across presentation, applicati
 
 ## Architecture
 
-```
-                         ┌──────────────────────────────────────────────┐
-                         │                   AWS VPC                    │
-  ┌──────────┐           │  ┌─────────────────┐    ┌─────────────────┐  │
-  │ Internet │──IGW──────┼─▶│  Public Subnet  │    │ Private Subnet  │  │
-  └──────────┘           │  │                 │    │                 │  │
-                         │  │  ┌───────────┐  │    │  ┌───────────┐  │  │
-                         │  │  │   EC2     │  │    │  │   EC2     │  │  │
-                         │  │  │ [Tier 1]  │──┼────┼─▶│ [Tier 2]  │  │  │
-                         │  │  │  Web/LB   │  │    │  │Flask API  │  │  │
-                         │  │  └───────────┘  │    │  └─────┬─────┘  │  │
-                         │  └─────────────────┘    │        │        │  │
-                         │                         │  ┌─────▼─────┐  │  │
-                         │                         │  │  [Tier 3] │  │  │
-                         │                         │  │ Database  │  │  │
-                         │                         │  └───────────┘  │  │
-                         │                         └─────────────────┘  │
-                         └──────────────────────────────────────────────┘
-```
+
 
 | Tier | Layer | Placement | Exposure |
 |------|-------|-----------|----------|
@@ -177,19 +159,6 @@ Real operational challenges encountered and resolved during this engagement:
 | Terraform dependency resolution error | Missing `depends_on` declarations; implicit ordering insufficient | Explicit dependency graph; `terraform validate` in CI |
 | Security Group ingress misconfiguration | Incorrect CIDR references; missing port rules | VPC Flow Log analysis; least-privilege rule rewrite |
 
----
-
-## Screenshots
-
-| Component | Screenshot |
-|---|---|
-| Architecture Diagram | *(add: `docs/architecture.png`)* |
-| `terraform apply` output | *(add screenshot)* |
-| Docker container running | *(add screenshot)* |
-| EC2 instance in AWS Console | *(add screenshot)* |
-| Application live in browser | *(add screenshot)* |
-
----
 
 ## Author
 
