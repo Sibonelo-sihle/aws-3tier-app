@@ -125,10 +125,6 @@ aws-3tier-flask/
 │   ├── variables.tf          # Input variable declarations
 │   ├── outputs.tf            # Output value exports
 │   ├── terraform.tfvars      # Environment-specific values (gitignored)
-│   └── modules/
-│       ├── networking/       # VPC, subnets, IGW, route tables
-│       ├── compute/          # EC2 instances, key pairs
-│       └── security/         # Security groups, IAM roles
 ├── app/
 │   ├── app.py                # Flask application entry point
 │   ├── requirements.txt      # Python dependencies
